@@ -3,6 +3,7 @@ import threading
 import socket
 import time
 import sys
+import smtplib  # Add the smtplib module to send emails
 
 # Configuration constants
 PORT = 5050
@@ -18,6 +19,23 @@ server_socket.bind(ADDRESS)
 connected_clients = {}
 client_lock = threading.Lock()
 
+# Email configuration (from smtp.py)
+send_email = "your-email@gmail.com"  # Use your email
+app_password = "your-app-password"   # Use your app password
+recieve_email = "admin@example.com"  # Admin email to notify when a user joins or leaves
+
+def send_notification(subject, message):
+    """Function to send email notifications."""
+    text = f"Subject: {subject}\n\n{message}"
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(send_email, app_password)  # Use your credentials securely
+        server.sendmail(send_email, recieve_email, text)
+        server.quit()
+        print(f"Notification sent: {subject}")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
 
 def disconnect_client(username, connection):
     """Disconnects a client and removes them from the list."""
@@ -25,7 +43,8 @@ def disconnect_client(username, connection):
         if username in connected_clients:
             del connected_clients[username]
             connection.close()
-
+            # Send email notification when a user disconnects
+            send_notification(f"User {username} Disconnected", f"{username} has left the chat.")
 
 def send_to_all(message, exclude=None, target=None):
     """Sends messages to all connected clients except the sender or to a specific target."""
@@ -46,7 +65,6 @@ def send_to_all(message, exclude=None, target=None):
                         print(f"Failed to send to {client_name}: {e}")
                         disconnect_client(client_name, client_socket)
 
-
 def manage_client(conn, addr):
     print(f"[NEW CONNECTION] {addr} joined.")
 
@@ -55,6 +73,9 @@ def manage_client(conn, addr):
         with client_lock:
             connected_clients[username] = conn
         print(f"{username} joined the chat.")
+
+        # Send email notification when a user joins
+        send_notification(f"New User {username} Joined", f"{username} has joined the chat.")
 
         welcome_message = f"{Fore.GREEN}{username} has entered the chat.{Style.RESET_ALL}".encode(
             ENCODING)
@@ -95,7 +116,6 @@ def manage_client(conn, addr):
         send_to_all(leave_msg)
         print(f"{username} has left.")
 
-
 def admin_messages():
     """Server-side input to send messages to clients."""
     while True:
@@ -106,7 +126,6 @@ def admin_messages():
             server_msg = f"{Fore.YELLOW}[SERVER] {msg}{Style.RESET_ALL}".encode(
                 ENCODING)
             send_to_all(server_msg)
-
 
 def initialize_server():
     init()
@@ -123,7 +142,6 @@ def initialize_server():
             target=manage_client, args=(conn, addr))
         client_thread.start()
         print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
-
 
 print("[SERVER INITIALIZING]")
 initialize_server()

@@ -1,2 +1,1 @@
-# Python-Socket-Chat-App
-
+# Python Socket Programming & SMTP 
